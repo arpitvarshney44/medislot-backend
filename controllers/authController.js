@@ -166,20 +166,13 @@ const loginPatient = async (req, res) => {
 // ---------------------------------------------------------------------------
 // @desc    Verify email
 // @route   POST /api/auth/verify-email
-// @route   GET /api/auth/verify-email
 // @access  Public
 // ---------------------------------------------------------------------------
 const verifyEmail = async (req, res) => {
     try {
-        // Support both POST (with body) and GET (with query params)
-        const token = req.body.token || req.query.token;
+        const { token } = req.body;
 
         if (!token) {
-            // If it's a GET request, redirect to app with error
-            if (req.method === 'GET') {
-                const appUrl = process.env.APP_URL || 'medislot://';
-                return res.redirect(`${appUrl}verify-email?success=false&message=Token is required`);
-            }
             return res.status(400).json({
                 success: false,
                 message: 'Token is required.',
@@ -196,11 +189,6 @@ const verifyEmail = async (req, res) => {
         });
 
         if (!user) {
-            // If it's a GET request, redirect to app with error
-            if (req.method === 'GET') {
-                const appUrl = process.env.APP_URL || 'medislot://';
-                return res.redirect(`${appUrl}verify-email?success=false&message=Invalid or expired verification token`);
-            }
             return res.status(400).json({
                 success: false,
                 message: 'Invalid or expired verification token.',
@@ -209,13 +197,8 @@ const verifyEmail = async (req, res) => {
 
         // Check if already verified
         if (user.isEmailVerified) {
-            // If it's a GET request, redirect to app with info
-            if (req.method === 'GET') {
-                const appUrl = process.env.APP_URL || 'medislot://';
-                return res.redirect(`${appUrl}verify-email?success=true&message=Email is already verified`);
-            }
-            return res.status(400).json({
-                success: false,
+            return res.status(200).json({
+                success: true,
                 message: 'Email is already verified.',
             });
         }
@@ -226,25 +209,12 @@ const verifyEmail = async (req, res) => {
         user.emailVerificationExpire = null;
         await user.save({ validateBeforeSave: false });
 
-        // If it's a GET request, redirect to app with success
-        if (req.method === 'GET') {
-            const appUrl = process.env.APP_URL || 'medislot://';
-            return res.redirect(`${appUrl}verify-email?success=true&message=Email verified successfully`);
-        }
-
         res.status(200).json({
             success: true,
             message: 'Email verified successfully! You can now access all features.',
         });
     } catch (error) {
         console.error('Email verification error:', error);
-        
-        // If it's a GET request, redirect to app with error
-        if (req.method === 'GET') {
-            const appUrl = process.env.APP_URL || 'medislot://';
-            return res.redirect(`${appUrl}verify-email?success=false&message=Email verification failed`);
-        }
-        
         res.status(500).json({
             success: false,
             message: 'Email verification failed. Please try again.',

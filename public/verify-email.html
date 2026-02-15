@@ -74,20 +74,58 @@
             document.getElementById('error').style.display = 'block';
             document.querySelector('.spinner').style.display = 'none';
         } else {
-            // Create deep link
-            const deepLinkUrl = `medislot://verify-email?token=${token}&type=${type}`;
-            document.getElementById('deepLink').href = deepLinkUrl;
+            // First, verify the email with the backend API
+            const apiEndpoint = type === 'doctor' 
+                ? '/api/doctor/auth/verify-email' 
+                : '/api/auth/verify-email';
 
-            // Try to open the app automatically
-            setTimeout(() => {
-                window.location.href = deepLinkUrl;
-            }, 500);
+            fetch(apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Success - redirect to app
+                    const deepLinkUrl = `medislot://verify-email?success=true&message=${encodeURIComponent(data.message || 'Email verified successfully')}`;
+                    document.getElementById('deepLink').href = deepLinkUrl;
+                    
+                    // Update UI
+                    document.querySelector('h1').textContent = '✅ Email Verified!';
+                    document.querySelector('p').textContent = data.message || 'Your email has been verified successfully.';
+                    
+                    // Try to open the app automatically
+                    setTimeout(() => {
+                        window.location.href = deepLinkUrl;
+                    }, 1000);
 
-            // Fallback: Show manual button after 3 seconds
-            setTimeout(() => {
-                document.getElementById('message').textContent = 'App not opening? Tap the button below:';
+                    // Fallback: Show manual button after 3 seconds
+                    setTimeout(() => {
+                        document.getElementById('message').textContent = 'App not opening? Tap the button below:';
+                        document.querySelector('.spinner').style.display = 'none';
+                    }, 3000);
+                } else {
+                    // Error from API
+                    document.querySelector('h1').textContent = '❌ Verification Failed';
+                    document.querySelector('p').textContent = data.message || 'Email verification failed.';
+                    document.getElementById('error').textContent = data.message || 'Please try again or request a new verification link.';
+                    document.getElementById('error').style.display = 'block';
+                    document.querySelector('.spinner').style.display = 'none';
+                    document.getElementById('deepLink').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Verification error:', error);
+                document.querySelector('h1').textContent = '❌ Verification Failed';
+                document.querySelector('p').textContent = 'An error occurred during verification.';
+                document.getElementById('error').textContent = 'Please try again later or contact support.';
+                document.getElementById('error').style.display = 'block';
                 document.querySelector('.spinner').style.display = 'none';
-            }, 3000);
+                document.getElementById('deepLink').style.display = 'none';
+            });
         }
     </script>
 </body>
