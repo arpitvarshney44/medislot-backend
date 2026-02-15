@@ -55,7 +55,17 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * @param {string} userType - 'patient' or 'doctor'
  */
 const sendVerificationEmail = async (email, name, token, userType = 'patient') => {
-    const verificationUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/verify-email?token=${token}&type=${userType}`;
+    // Use HTTPS URL for better email client compatibility
+    // The web server will redirect to the app deep link
+    let verificationUrl;
+    if (userType === 'admin') {
+        verificationUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/verify-email?token=${token}&type=${userType}`;
+    } else {
+        // Use production URL if available, fallback to deep link
+        verificationUrl = process.env.PRODUCTION_APP_URL 
+            ? `${process.env.PRODUCTION_APP_URL}/verify-email?token=${token}&type=${userType}`
+            : `${process.env.APP_URL || 'medislot://'}verify-email?token=${token}&type=${userType}`;
+    }
 
     const html = `
     <!DOCTYPE html>
@@ -157,7 +167,10 @@ const sendPasswordResetEmail = async (email, name, token, userType = 'patient') 
     if (userType === 'admin') {
         resetUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
     } else {
-        resetUrl = `${process.env.APP_URL || 'medislot://'}reset-password?token=${token}&type=${userType}`;
+        // Use production URL if available, fallback to deep link
+        resetUrl = process.env.PRODUCTION_APP_URL 
+            ? `${process.env.PRODUCTION_APP_URL}/reset-password?token=${token}&type=${userType}`
+            : `${process.env.APP_URL || 'medislot://'}reset-password?token=${token}&type=${userType}`;
     }
 
     const html = `
@@ -257,6 +270,11 @@ const sendPasswordResetEmail = async (email, name, token, userType = 'patient') 
  */
 const sendDoctorVerificationStatusEmail = async (email, name, status, reason = '') => {
     const isApproved = status === 'approved';
+    
+    // Create app open link
+    const appUrl = process.env.PRODUCTION_APP_URL 
+        ? `${process.env.PRODUCTION_APP_URL}/doctor-dashboard`
+        : `${process.env.APP_URL || 'medislot://'}doctor-dashboard`;
 
     const html = `
     <!DOCTYPE html>
@@ -305,6 +323,17 @@ const sendDoctorVerificationStatusEmail = async (email, name, status, reason = '
                         <li>Start receiving appointments!</li>
                       </ul>
                     </div>
+                    
+                    <!-- CTA Button for Approved -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="text-align: center; padding: 24px 0 32px;">
+                          <a href="${appUrl}" style="display: inline-block; padding: 16px 48px; background: linear-gradient(135deg, #00BFA6 0%, #00D9BF 100%); color: #0B1426; font-size: 16px; font-weight: 700; text-decoration: none; border-radius: 12px; letter-spacing: 0.5px;">
+                            🚀 Open MediSlot App
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
                   ` : `
                     <p style="color: #8B9DC3; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">
                       Unfortunately, your profile verification was <strong style="color: #FF6584;">not approved</strong> at this time.
@@ -318,6 +347,17 @@ const sendDoctorVerificationStatusEmail = async (email, name, status, reason = '
                     <p style="color: #8B9DC3; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">
                       You can update your profile and documents, then request re-verification through the app.
                     </p>
+                    
+                    <!-- CTA Button for Rejected -->
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="text-align: center; padding: 24px 0 32px;">
+                          <a href="${appUrl}" style="display: inline-block; padding: 16px 48px; background: linear-gradient(135deg, #FF6584 0%, #FF8A65 100%); color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; border-radius: 12px; letter-spacing: 0.5px;">
+                            📱 Update Profile
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
                   `}
                   
                   <hr style="border: none; border-top: 1px solid rgba(139,157,195,0.2); margin: 24px 0;">
@@ -351,8 +391,8 @@ const sendDoctorVerificationStatusEmail = async (email, name, status, reason = '
             : '📋 Verification Update - Medi Slot',
         html,
         text: isApproved
-            ? `Dear Dr. ${name}, Your profile has been approved! You can now start accepting appointments on Medi Slot.`
-            : `Dear Dr. ${name}, Your profile verification was not approved. ${reason ? `Reason: ${reason}` : ''} Please update your profile and try again.`,
+            ? `Dear Dr. ${name}, Your profile has been approved! You can now start accepting appointments on Medi Slot. Open the app: ${appUrl}`
+            : `Dear Dr. ${name}, Your profile verification was not approved. ${reason ? `Reason: ${reason}` : ''} Please update your profile and try again. Open the app: ${appUrl}`,
     });
 };
 
