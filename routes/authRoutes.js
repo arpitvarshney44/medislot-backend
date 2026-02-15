@@ -15,6 +15,7 @@ const {
 router.post('/register', validatePatientRegister, registerPatient);
 router.post('/login', validateLogin, loginPatient);
 router.post('/verify-email', validateEmailVerification, verifyEmail);
+router.get('/verify-email', verifyEmail); // Handle GET requests from email links
 router.post('/forgot-password', validateForgotPassword, forgotPassword);
 router.post('/reset-password', validateResetPassword, resetPassword);
 router.post('/refresh-token', validateRefreshToken, refreshAccessToken);

@@ -55,16 +55,18 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * @param {string} userType - 'patient' or 'doctor'
  */
 const sendVerificationEmail = async (email, name, token, userType = 'patient') => {
-    // Use HTTPS URL for better email client compatibility
-    // The web server will redirect to the app deep link
+    // Construct the backend API URL for email verification
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    
     let verificationUrl;
     if (userType === 'admin') {
+        // Admin verification goes to admin panel
         verificationUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/verify-email?token=${token}&type=${userType}`;
     } else {
-        // Use production URL if available, fallback to deep link
-        verificationUrl = process.env.PRODUCTION_APP_URL 
-            ? `${process.env.PRODUCTION_APP_URL}/verify-email?token=${token}&type=${userType}`
-            : `${process.env.APP_URL || 'medislot://'}verify-email?token=${token}&type=${userType}`;
+        // Patient/Doctor verification goes to backend API which will handle the verification
+        // and redirect to the app with success/error message
+        const apiEndpoint = userType === 'doctor' ? '/api/doctor/auth/verify-email' : '/api/auth/verify-email';
+        verificationUrl = `${backendUrl}${apiEndpoint}?token=${token}`;
     }
 
     const html = `
