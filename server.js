@@ -23,11 +23,11 @@ const server = http.createServer(app);
 // ---------------------------------------------------------------------------
 const io = new Server(server, {
     cors: {
-        origin: [
-            process.env.ADMIN_PANEL_URL || 'http://localhost:5173',
-            'http://localhost:3000',
-            'http://localhost:8081',
-        ],
+        origin: function (origin, callback) {
+            // Allow requests with no origin (mobile apps)
+            if (!origin) return callback(null, true);
+            callback(null, true); // Allow all origins for mobile app
+        },
         methods: ['GET', 'POST'],
         credentials: true,
     },
@@ -48,11 +48,23 @@ app.use(sanitizeRequest);
 
 // CORS Configuration
 const corsOptions = {
-    origin: [
-        process.env.ADMIN_PANEL_URL || 'http://localhost:5173',
-        'http://localhost:3000',
-        'http://localhost:8081',
-    ],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+            process.env.ADMIN_PANEL_URL || 'http://localhost:5173',
+            'http://localhost:3000',
+            'http://localhost:8081',
+            process.env.PRODUCTION_APP_URL,
+        ];
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all origins for mobile app
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
