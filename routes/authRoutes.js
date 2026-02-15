@@ -6,7 +6,7 @@ const {
     validateResetPassword, validateChangePassword, validateEmailVerification, validateRefreshToken,
 } = require('../validators/authValidator');
 const {
-    registerPatient, loginPatient, verifyEmail, resendVerificationEmail,
+    registerPatient, loginPatient, verifyEmail, verifyEmailDirect, resendVerificationEmail,
     forgotPassword, resetPassword, changePassword, getMe, updateProfile,
     refreshAccessToken, logoutPatient, updateFCMToken,
 } = require('../controllers/authController');
@@ -15,6 +15,7 @@ const {
 router.post('/register', validatePatientRegister, registerPatient);
 router.post('/login', validateLogin, loginPatient);
 router.post('/verify-email', validateEmailVerification, verifyEmail);
+router.get('/verify-email-direct', verifyEmailDirect); // Direct GET verification
 router.post('/forgot-password', validateForgotPassword, forgotPassword);
 router.post('/reset-password', validateResetPassword, resetPassword);
 router.post('/refresh-token', validateRefreshToken, refreshAccessToken);

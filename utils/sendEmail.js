@@ -55,7 +55,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * @param {string} userType - 'patient' or 'doctor'
  */
 const sendVerificationEmail = async (email, name, token, userType = 'patient') => {
-    // Construct the backend URL for the HTML redirect page
+    // Construct the backend URL for direct verification
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
     
     let verificationUrl;
@@ -63,8 +63,9 @@ const sendVerificationEmail = async (email, name, token, userType = 'patient') =
         // Admin verification goes to admin panel
         verificationUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/verify-email?token=${token}&type=${userType}`;
     } else {
-        // Patient/Doctor verification goes to the HTML page which will handle deep linking
-        verificationUrl = `${backendUrl}/verify-email.html?token=${token}&type=${userType}`;
+        // Patient/Doctor verification goes directly to the API endpoint
+        const apiEndpoint = userType === 'doctor' ? '/api/doctor/auth/verify-email-direct' : '/api/auth/verify-email-direct';
+        verificationUrl = `${backendUrl}${apiEndpoint}?token=${token}`;
     }
 
     const html = `

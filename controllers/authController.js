@@ -223,6 +223,89 @@ const verifyEmail = async (req, res) => {
 };
 
 // ---------------------------------------------------------------------------
+// @desc    Verify email (Direct GET - for email links)
+// @route   GET /api/auth/verify-email-direct
+// @access  Public
+// ---------------------------------------------------------------------------
+const verifyEmailDirect = async (req, res) => {
+    try {
+        const token = req.query.token;
+
+        if (!token) {
+            return res.send(`
+                <!DOCTYPE html>
+                <html><body style="font-family: Arial; text-align: center; padding: 50px;">
+                <h1>❌ Verification Failed</h1>
+                <p>Token is missing.</p>
+                </body></html>
+            `);
+        }
+
+        // Hash the token to compare with stored hash
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        // Find user with matching token and not expired
+        const user = await User.findOne({
+            emailVerificationToken: hashedToken,
+            emailVerificationExpire: { $gt: Date.now() },
+        });
+
+        if (!user) {
+            return res.send(`
+                <!DOCTYPE html>
+                <html><body style="font-family: Arial; text-align: center; padding: 50px;">
+                <h1>❌ Verification Failed</h1>
+                <p>Invalid or expired verification token.</p>
+                <p><a href="${process.env.APP_URL || 'medislot://'}">Open MediSlot App</a></p>
+                </body></html>
+            `);
+        }
+
+        // Check if already verified
+        if (user.isEmailVerified) {
+            const deepLink = `${process.env.APP_URL || 'medislot://'}verify-email?success=true&message=Email is already verified`;
+            return res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head><meta http-equiv="refresh" content="1;url=${deepLink}"></head>
+                <body style="font-family: Arial; text-align: center; padding: 50px;">
+                <h1>✅ Already Verified</h1>
+                <p>Your email is already verified.</p>
+                <p>Redirecting to app... <a href="${deepLink}">Click here if not redirected</a></p>
+                </body></html>
+            `);
+        }
+
+        // Mark email as verified
+        user.isEmailVerified = true;
+        user.emailVerificationToken = null;
+        user.emailVerificationExpire = null;
+        await user.save({ validateBeforeSave: false });
+
+        const deepLink = `${process.env.APP_URL || 'medislot://'}verify-email?success=true&message=Email verified successfully`;
+        res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head><meta http-equiv="refresh" content="1;url=${deepLink}"></head>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1>✅ Email Verified!</h1>
+            <p>Your email has been verified successfully.</p>
+            <p>Redirecting to app... <a href="${deepLink}">Click here if not redirected</a></p>
+            </body></html>
+        `);
+    } catch (error) {
+        console.error('Email verification error:', error);
+        res.send(`
+            <!DOCTYPE html>
+            <html><body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h1>❌ Verification Failed</h1>
+            <p>An error occurred. Please try again.</p>
+            </body></html>
+        `);
+    }
+};
+
+// ---------------------------------------------------------------------------
 // @desc    Resend verification email
 // @route   POST /api/auth/resend-verification
 // @access  Private (Patient)
@@ -613,6 +696,7 @@ module.exports = {
     registerPatient,
     loginPatient,
     verifyEmail,
+    verifyEmailDirect,
     resendVerificationEmail,
     forgotPassword,
     resetPassword,

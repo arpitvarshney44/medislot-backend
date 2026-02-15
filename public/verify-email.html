@@ -69,6 +69,9 @@
         const token = urlParams.get('token');
         const type = urlParams.get('type') || 'patient';
 
+        console.log('Token:', token);
+        console.log('Type:', type);
+
         if (!token) {
             document.getElementById('error').textContent = 'Invalid verification link. Please request a new one.';
             document.getElementById('error').style.display = 'block';
@@ -79,6 +82,8 @@
                 ? '/api/doctor/auth/verify-email' 
                 : '/api/auth/verify-email';
 
+            console.log('Calling API:', apiEndpoint);
+
             fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
@@ -86,8 +91,13 @@
                 },
                 body: JSON.stringify({ token })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
+                
                 if (data.success) {
                     // Success - redirect to app
                     const deepLinkUrl = `medislot://verify-email?success=true&message=${encodeURIComponent(data.message || 'Email verified successfully')}`;
@@ -99,6 +109,7 @@
                     
                     // Try to open the app automatically
                     setTimeout(() => {
+                        console.log('Attempting to open app:', deepLinkUrl);
                         window.location.href = deepLinkUrl;
                     }, 1000);
 
@@ -121,7 +132,7 @@
                 console.error('Verification error:', error);
                 document.querySelector('h1').textContent = '❌ Verification Failed';
                 document.querySelector('p').textContent = 'An error occurred during verification.';
-                document.getElementById('error').textContent = 'Please try again later or contact support.';
+                document.getElementById('error').textContent = 'Network error: ' + error.message;
                 document.getElementById('error').style.display = 'block';
                 document.querySelector('.spinner').style.display = 'none';
                 document.getElementById('deepLink').style.display = 'none';
