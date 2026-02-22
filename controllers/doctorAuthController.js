@@ -103,6 +103,31 @@ const verifyDoctorEmail = async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, message: 'Verification failed.' }); }
 };
 
+const verifyDoctorEmailDirect = async (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token) {
+            return res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Verification Failed</h1><p>Token is missing.</p></body></html>`);
+        }
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+        const doctor = await Doctor.findOne({ emailVerificationToken: hashedToken, emailVerificationExpire: { $gt: Date.now() } });
+        if (!doctor) {
+            return res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Verification Failed</h1><p>Invalid or expired verification token.</p><p><a href="${process.env.APP_URL || 'medislot://'}">Open MediSlot App</a></p></body></html>`);
+        }
+        if (doctor.isEmailVerified) {
+            const deepLink = `${process.env.APP_URL || 'medislot://'}verify-email?success=true&message=Email is already verified`;
+            return res.send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1;url=${deepLink}"></head><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>✅ Already Verified</h1><p>Your email is already verified.</p><p>Redirecting to app... <a href="${deepLink}">Click here if not redirected</a></p></body></html>`);
+        }
+        doctor.isEmailVerified = true; doctor.emailVerificationToken = null; doctor.emailVerificationExpire = null;
+        await doctor.save({ validateBeforeSave: false });
+        const deepLink = `${process.env.APP_URL || 'medislot://'}verify-email?success=true&message=Email verified successfully`;
+        res.send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1;url=${deepLink}"></head><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>✅ Email Verified!</h1><p>Your email has been verified successfully.</p><p>Redirecting to app... <a href="${deepLink}">Click here if not redirected</a></p></body></html>`);
+    } catch (error) {
+        console.error('Doctor email verification error:', error);
+        res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Verification Failed</h1><p>An error occurred. Please try again.</p></body></html>`);
+    }
+};
+
 const resendDoctorVerification = async (req, res) => {
     try {
         const doctor = await Doctor.findById(req.user._id);
@@ -135,6 +160,25 @@ const resetDoctorPassword = async (req, res) => {
         await doctor.save();
         res.status(200).json({ success: true, message: 'Password reset successful!' });
     } catch (error) { res.status(500).json({ success: false, message: 'Reset failed.' }); }
+};
+
+const resetDoctorPasswordDirect = async (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token) {
+            return res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Reset Failed</h1><p>Token is missing.</p></body></html>`);
+        }
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+        const doctor = await Doctor.findOne({ resetPasswordToken: hashedToken, resetPasswordExpire: { $gt: Date.now() } });
+        if (!doctor) {
+            return res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Reset Failed</h1><p>Invalid or expired reset token.</p><p><a href="${process.env.APP_URL || 'medislot://'}">Open MediSlot App</a></p></body></html>`);
+        }
+        const deepLink = `${process.env.APP_URL || 'medislot://'}reset-password?token=${token}&type=doctor`;
+        res.send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1;url=${deepLink}"></head><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>🔐 Reset Your Password</h1><p>Redirecting to app to set your new password...</p><p><a href="${deepLink}">Click here if not redirected</a></p></body></html>`);
+    } catch (error) {
+        console.error('Doctor password reset error:', error);
+        res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Reset Failed</h1><p>An error occurred. Please try again.</p></body></html>`);
+    }
 };
 
 const changeDoctorPassword = async (req, res) => {
@@ -218,8 +262,8 @@ const updateDoctorFCMToken = async (req, res) => {
 };
 
 module.exports = {
-    registerDoctor, loginDoctor, verifyDoctorEmail, resendDoctorVerification,
-    forgotDoctorPassword, resetDoctorPassword, changeDoctorPassword,
+    registerDoctor, loginDoctor, verifyDoctorEmail, verifyDoctorEmailDirect, resendDoctorVerification,
+    forgotDoctorPassword, resetDoctorPassword, resetDoctorPasswordDirect, changeDoctorPassword,
     getDoctorProfile, updateDoctorProfile, refreshDoctorToken, logoutDoctor,
     uploadDocuments, updateDoctorFCMToken,
 };

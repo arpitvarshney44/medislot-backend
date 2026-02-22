@@ -120,7 +120,23 @@ const userSchema = new mongoose.Schema(
         },
 
         // -----------------------------------------------------------------------
-        // Email Verification Token
+        // Email Verification OTP (6-digit code)
+        // -----------------------------------------------------------------------
+        emailVerificationOTP: {
+            type: String,
+            default: null,
+        },
+        emailVerificationOTPExpire: {
+            type: Date,
+            default: null,
+        },
+        emailVerificationOTPAttempts: {
+            type: Number,
+            default: 0,
+        },
+
+        // -----------------------------------------------------------------------
+        // Email Verification Token (Legacy - keeping for backward compatibility)
         // -----------------------------------------------------------------------
         emailVerificationToken: {
             type: String,
@@ -132,7 +148,23 @@ const userSchema = new mongoose.Schema(
         },
 
         // -----------------------------------------------------------------------
-        // Password Reset
+        // Password Reset OTP (6-digit code)
+        // -----------------------------------------------------------------------
+        resetPasswordOTP: {
+            type: String,
+            default: null,
+        },
+        resetPasswordOTPExpire: {
+            type: Date,
+            default: null,
+        },
+        resetPasswordOTPAttempts: {
+            type: Number,
+            default: 0,
+        },
+
+        // -----------------------------------------------------------------------
+        // Password Reset Token (Legacy - keeping for backward compatibility)
         // -----------------------------------------------------------------------
         resetPasswordToken: {
             type: String,
@@ -250,7 +282,49 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // ---------------------------------------------------------------------------
-// Method: Generate Email Verification Token
+// Method: Generate Email Verification OTP (6-digit)
+// ---------------------------------------------------------------------------
+userSchema.methods.generateEmailVerificationOTP = function () {
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    this.emailVerificationOTP = otp;
+    this.emailVerificationOTPExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    this.emailVerificationOTPAttempts = 0;
+    return otp;
+};
+
+// ---------------------------------------------------------------------------
+// Method: Verify Email OTP
+// ---------------------------------------------------------------------------
+userSchema.methods.verifyEmailOTP = function (otp) {
+    if (!this.emailVerificationOTP || !this.emailVerificationOTPExpire) {
+        return { success: false, message: 'No OTP found. Please request a new one.' };
+    }
+    
+    if (Date.now() > this.emailVerificationOTPExpire) {
+        return { success: false, message: 'OTP has expired. Please request a new one.' };
+    }
+    
+    if (this.emailVerificationOTPAttempts >= 5) {
+        return { success: false, message: 'Too many failed attempts. Please request a new OTP.' };
+    }
+    
+    if (this.emailVerificationOTP !== otp) {
+        this.emailVerificationOTPAttempts += 1;
+        return { success: false, message: `Invalid OTP. ${5 - this.emailVerificationOTPAttempts} attempts remaining.` };
+    }
+    
+    // OTP is valid
+    this.isEmailVerified = true;
+    this.emailVerificationOTP = null;
+    this.emailVerificationOTPExpire = null;
+    this.emailVerificationOTPAttempts = 0;
+    
+    return { success: true, message: 'Email verified successfully!' };
+};
+
+// ---------------------------------------------------------------------------
+// Method: Generate Email Verification Token (Legacy)
 // ---------------------------------------------------------------------------
 userSchema.methods.generateEmailVerificationToken = function () {
     const token = crypto.randomBytes(32).toString('hex');
@@ -273,6 +347,52 @@ userSchema.methods.generateResetPasswordToken = function () {
         .digest('hex');
     this.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
     return token;
+};
+
+// ---------------------------------------------------------------------------
+// Method: Generate Password Reset OTP (6-digit)
+// ---------------------------------------------------------------------------
+userSchema.methods.generateResetPasswordOTP = function () {
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    this.resetPasswordOTP = otp;
+    this.resetPasswordOTPExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    this.resetPasswordOTPAttempts = 0;
+    return otp;
+};
+
+// ---------------------------------------------------------------------------
+// Method: Verify Password Reset OTP
+// ---------------------------------------------------------------------------
+userSchema.methods.verifyResetPasswordOTP = function (otp) {
+    if (!this.resetPasswordOTP || !this.resetPasswordOTPExpire) {
+        return { success: false, message: 'No OTP found. Please request a new one.' };
+    }
+    
+    if (Date.now() > this.resetPasswordOTPExpire) {
+        return { success: false, message: 'OTP has expired. Please request a new one.' };
+    }
+    
+    if (this.resetPasswordOTPAttempts >= 5) {
+        return { success: false, message: 'Too many failed attempts. Please request a new OTP.' };
+    }
+    
+    if (this.resetPasswordOTP !== otp) {
+        this.resetPasswordOTPAttempts += 1;
+        return { success: false, message: `Invalid OTP. ${5 - this.resetPasswordOTPAttempts} attempts remaining.` };
+    }
+    
+    // OTP is valid - don't clear it yet, will clear after password reset
+    return { success: true, message: 'OTP verified successfully!' };
+};
+
+// ---------------------------------------------------------------------------
+// Method: Clear Password Reset OTP
+// ---------------------------------------------------------------------------
+userSchema.methods.clearResetPasswordOTP = function () {
+    this.resetPasswordOTP = null;
+    this.resetPasswordOTPExpire = null;
+    this.resetPasswordOTPAttempts = 0;
 };
 
 // ---------------------------------------------------------------------------

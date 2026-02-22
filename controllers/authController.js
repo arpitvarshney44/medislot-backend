@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const User = require('../models/User');
 const { generateTokenPair } = require('../utils/generateToken');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/sendEmail');
+const { sendVerificationOTP, sendVerificationEmail, sendPasswordResetEmail } = require('../utils/sendEmail');
 
 // ---------------------------------------------------------------------------
 // @desc    Register a new patient
@@ -42,14 +42,14 @@ const registerPatient = async (req, res) => {
             profilePhoto: profilePhoto || '',
         });
 
-        // Generate email verification token
-        const verificationToken = user.generateEmailVerificationToken();
+        // Generate email verification OTP (6-digit)
+        const otp = user.generateEmailVerificationOTP();
 
         // Save user
         await user.save();
 
-        // Send verification email
-        await sendVerificationEmail(user.email, user.fullName, verificationToken, 'patient');
+        // Send verification OTP email
+        await sendVerificationOTP(user.email, user.fullName, otp, 'patient');
 
         // Generate auth tokens
         const { accessToken, refreshToken } = generateTokenPair(user._id, 'patient');
@@ -165,6 +165,70 @@ const loginPatient = async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // @desc    Verify email
+// @route   POST /api/auth/verify-email
+// @access  Public
+// ---------------------------------------------------------------------------
+// @desc    Verify email with OTP
+// @route   POST /api/auth/verify-otp
+// @access  Private (Patient)
+// ---------------------------------------------------------------------------
+const verifyEmailOTP = async (req, res) => {
+    try {
+        const { otp } = req.body;
+
+        if (!otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'OTP is required.',
+            });
+        }
+
+        // Find user
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+
+        // Check if already verified
+        if (user.isEmailVerified) {
+            return res.status(200).json({
+                success: true,
+                message: 'Email is already verified.',
+            });
+        }
+
+        // Verify OTP
+        const result = user.verifyEmailOTP(otp);
+
+        if (!result.success) {
+            return res.status(400).json({
+                success: false,
+                message: result.message,
+            });
+        }
+
+        // Save user
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({
+            success: true,
+            message: 'Email verified successfully! You can now access all features.',
+        });
+    } catch (error) {
+        console.error('OTP verification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'OTP verification failed. Please try again.',
+        });
+    }
+};
+
+// ---------------------------------------------------------------------------
+// @desc    Verify email (Legacy - Token based)
 // @route   POST /api/auth/verify-email
 // @access  Public
 // ---------------------------------------------------------------------------
@@ -306,7 +370,7 @@ const verifyEmailDirect = async (req, res) => {
 };
 
 // ---------------------------------------------------------------------------
-// @desc    Resend verification email
+// @desc    Resend verification OTP
 // @route   POST /api/auth/resend-verification
 // @access  Private (Patient)
 // ---------------------------------------------------------------------------
@@ -328,28 +392,28 @@ const resendVerificationEmail = async (req, res) => {
             });
         }
 
-        // Generate new verification token
-        const verificationToken = user.generateEmailVerificationToken();
+        // Generate new OTP
+        const otp = user.generateEmailVerificationOTP();
         await user.save({ validateBeforeSave: false });
 
-        // Send verification email
-        await sendVerificationEmail(user.email, user.fullName, verificationToken, 'patient');
+        // Send OTP email
+        await sendVerificationOTP(user.email, user.fullName, otp, 'patient');
 
         res.status(200).json({
             success: true,
-            message: 'Verification email sent successfully. Please check your inbox.',
+            message: 'Verification OTP sent successfully. Please check your inbox.',
         });
     } catch (error) {
         console.error('Resend verification error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to resend verification email. Please try again.',
+            message: 'Failed to resend verification OTP. Please try again.',
         });
     }
 };
 
 // ---------------------------------------------------------------------------
-// @desc    Forgot password - Send reset email
+// @desc    Forgot password - Send reset OTP
 // @route   POST /api/auth/forgot-password
 // @access  Public
 // ---------------------------------------------------------------------------
@@ -363,20 +427,21 @@ const forgotPassword = async (req, res) => {
             // Don't reveal if user exists
             return res.status(200).json({
                 success: true,
-                message: 'If an account with this email exists, a password reset link has been sent.',
+                message: 'If an account with this email exists, a password reset code has been sent.',
             });
         }
 
-        // Generate reset token
-        const resetToken = user.generateResetPasswordToken();
+        // Generate reset OTP
+        const otp = user.generateResetPasswordOTP();
         await user.save({ validateBeforeSave: false });
 
-        // Send password reset email
-        await sendPasswordResetEmail(user.email, user.fullName, resetToken, 'patient');
+        // Send password reset OTP email
+        const { sendPasswordResetOTP } = require('../utils/sendEmail');
+        await sendPasswordResetOTP(user.email, user.fullName, otp, 'patient');
 
         res.status(200).json({
             success: true,
-            message: 'If an account with this email exists, a password reset link has been sent.',
+            message: 'If an account with this email exists, a password reset code has been sent.',
         });
     } catch (error) {
         console.error('Forgot password error:', error);
@@ -387,8 +452,119 @@ const forgotPassword = async (req, res) => {
     }
 };
 
+
 // ---------------------------------------------------------------------------
 // @desc    Reset password with token
+// @route   POST /api/auth/reset-password
+// ---------------------------------------------------------------------------
+// @desc    Verify password reset OTP
+// @route   POST /api/auth/verify-reset-otp
+// @access  Public
+// ---------------------------------------------------------------------------
+const verifyResetOTP = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and OTP are required.',
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+
+        // Verify OTP
+        const result = user.verifyResetPasswordOTP(otp);
+
+        if (!result.success) {
+            await user.save({ validateBeforeSave: false }); // Save attempt count
+            return res.status(400).json({
+                success: false,
+                message: result.message,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'OTP verified successfully! You can now reset your password.',
+        });
+    } catch (error) {
+        console.error('Verify reset OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'OTP verification failed. Please try again.',
+        });
+    }
+};
+
+// ---------------------------------------------------------------------------
+// @desc    Reset password with OTP
+// @route   POST /api/auth/reset-password-otp
+// @access  Public
+// ---------------------------------------------------------------------------
+const resetPasswordWithOTP = async (req, res) => {
+    try {
+        const { email, otp, password } = req.body;
+
+        if (!email || !otp || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email, OTP, and new password are required.',
+            });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+
+        // Verify OTP one more time
+        const result = user.verifyResetPasswordOTP(otp);
+
+        if (!result.success) {
+            await user.save({ validateBeforeSave: false });
+            return res.status(400).json({
+                success: false,
+                message: result.message,
+            });
+        }
+
+        // Set new password
+        user.password = password;
+        user.clearResetPasswordOTP();
+
+        // Invalidate all existing refresh tokens
+        user.refreshToken = null;
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successful! You can now log in with your new password.',
+        });
+    } catch (error) {
+        console.error('Reset password with OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Password reset failed. Please try again.',
+        });
+    }
+};
+
+// ---------------------------------------------------------------------------
+// @desc    Reset password with token (Legacy)
 // @route   POST /api/auth/reset-password
 // @access  Public
 // ---------------------------------------------------------------------------
@@ -432,6 +608,30 @@ const resetPassword = async (req, res) => {
             success: false,
             message: 'Password reset failed. Please try again.',
         });
+    }
+};
+
+// ---------------------------------------------------------------------------
+// @desc    Reset password (Direct GET - for email links)
+// @route   GET /api/auth/reset-password-direct
+// @access  Public
+// ---------------------------------------------------------------------------
+const resetPasswordDirect = async (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token) {
+            return res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Reset Failed</h1><p>Token is missing.</p></body></html>`);
+        }
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+        const user = await User.findOne({ resetPasswordToken: hashedToken, resetPasswordExpire: { $gt: Date.now() } });
+        if (!user) {
+            return res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Reset Failed</h1><p>Invalid or expired reset token.</p><p><a href="${process.env.APP_URL || 'medislot://'}">Open MediSlot App</a></p></body></html>`);
+        }
+        const deepLink = `${process.env.APP_URL || 'medislot://'}reset-password?token=${token}&type=patient`;
+        res.send(`<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1;url=${deepLink}"></head><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>🔐 Reset Your Password</h1><p>Redirecting to app to set your new password...</p><p><a href="${deepLink}">Click here if not redirected</a></p></body></html>`);
+    } catch (error) {
+        console.error('Password reset error:', error);
+        res.send(`<!DOCTYPE html><html><body style="font-family: Arial; text-align: center; padding: 50px;"><h1>❌ Reset Failed</h1><p>An error occurred. Please try again.</p></body></html>`);
     }
 };
 
@@ -696,10 +896,14 @@ module.exports = {
     registerPatient,
     loginPatient,
     verifyEmail,
+    verifyEmailOTP,
     verifyEmailDirect,
     resendVerificationEmail,
     forgotPassword,
+    verifyResetOTP,
+    resetPasswordWithOTP,
     resetPassword,
+    resetPasswordDirect,
     changePassword,
     getMe,
     updateProfile,

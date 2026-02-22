@@ -6,8 +6,8 @@ const {
     validateResetPassword, validateChangePassword, validateEmailVerification, validateRefreshToken,
 } = require('../validators/authValidator');
 const {
-    registerDoctor, loginDoctor, verifyDoctorEmail, resendDoctorVerification,
-    forgotDoctorPassword, resetDoctorPassword, changeDoctorPassword,
+    registerDoctor, loginDoctor, verifyDoctorEmail, verifyDoctorEmailDirect, resendDoctorVerification,
+    forgotDoctorPassword, resetDoctorPassword, resetDoctorPasswordDirect, changeDoctorPassword,
     getDoctorProfile, updateDoctorProfile, refreshDoctorToken, logoutDoctor,
     uploadDocuments, updateDoctorFCMToken,
 } = require('../controllers/doctorAuthController');
@@ -16,8 +16,10 @@ const {
 router.post('/register', validateDoctorRegister, registerDoctor);
 router.post('/login', validateLogin, loginDoctor);
 router.post('/verify-email', validateEmailVerification, verifyDoctorEmail);
+router.get('/verify-email-direct', verifyDoctorEmailDirect); // Direct GET verification
 router.post('/forgot-password', validateForgotPassword, forgotDoctorPassword);
 router.post('/reset-password', validateResetPassword, resetDoctorPassword);
+router.get('/reset-password-direct', resetDoctorPasswordDirect); // Direct GET password reset
 router.post('/refresh-token', validateRefreshToken, refreshDoctorToken);
 
 // Protected routes (Doctor only)

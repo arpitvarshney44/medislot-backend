@@ -185,13 +185,15 @@ app.use((err, req, res, next) => {
 // Start Server
 // ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0'; // Bind to all network interfaces
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
     console.log(`\n🚀 Medi Slot Server running on port ${PORT}`);
     console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌐 API Base URL: http://localhost:${PORT}/api`);
-    console.log(`📹 WebRTC Signaling: ws://localhost:${PORT}/video`);
-    console.log(`❤️  Health Check: http://localhost:${PORT}/api/health\n`);
+    console.log(`🌐 Local: http://localhost:${PORT}/api`);
+    console.log(`🌐 Network: http://${HOST}:${PORT}/api`);
+    console.log(`📹 WebRTC Signaling: ws://${HOST}:${PORT}/video`);
+    console.log(`❤️  Health Check: http://${HOST}:${PORT}/api/health\n`);
 });
 
 module.exports = { app, server, io };
