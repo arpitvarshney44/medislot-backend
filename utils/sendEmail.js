@@ -206,7 +206,7 @@ const sendPasswordResetOTP = async (email, name, otp, userType = 'patient') => {
 
 // Legacy token-based functions kept for backward compatibility
 const sendVerificationEmail = async (email, name, token, userType = 'patient') => {
-    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5001}`;
     let verificationUrl;
     if (userType === 'admin') {
         verificationUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/verify-email?token=${token}&type=${userType}`;
@@ -219,7 +219,7 @@ const sendVerificationEmail = async (email, name, token, userType = 'patient') =
 };
 
 const sendPasswordResetEmail = async (email, name, token, userType = 'patient') => {
-    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5001}`;
     let resetUrl;
     if (userType === 'admin') {
         resetUrl = `${process.env.ADMIN_PANEL_URL || 'http://localhost:5173'}/reset-password?token=${token}`;

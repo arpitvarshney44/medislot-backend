@@ -49,6 +49,7 @@ exports.bookAppointment = async (req, res, next) => {
             reports: reports || [],
             patientDetails: { name: patientName, age: patientAge, gender: patientGender },
             clinic: clinicId || null,
+            consultationFee: fee,
             fees: { consultationFee: fee, platformCommission, doctorEarning },
             status: 'pending',
         });
