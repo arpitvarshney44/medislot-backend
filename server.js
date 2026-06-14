@@ -112,7 +112,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Serve Admin Panel SPA from /admin
 const adminPanelPath = path.join(__dirname, 'public', 'admin');
 app.use('/admin', express.static(adminPanelPath));
-app.get('/admin/*', (req, res) => {
+// Catch-all: serve index.html for all /admin routes (React Router handles client-side routing)
+app.get(['/admin', '/admin/*'], (req, res) => {
     res.sendFile(path.join(adminPanelPath, 'index.html'));
 });
 
