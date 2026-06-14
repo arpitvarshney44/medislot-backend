@@ -109,6 +109,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Serve public files (for email redirects)
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve Admin Panel SPA from /admin
+const adminPanelPath = path.join(__dirname, 'public', 'admin');
+app.use('/admin', express.static(adminPanelPath));
+app.get('/admin/*', (req, res) => {
+    res.sendFile(path.join(adminPanelPath, 'index.html'));
+});
+
 // ---------------------------------------------------------------------------
 // API Routes
 // ---------------------------------------------------------------------------
